@@ -30,7 +30,9 @@ jobs:
           cache-dependency-path: desktop/electron/pnpm-lock.yaml
 
       - name: Enable pnpm
-        run: corepack enable
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.30.3 --activate
 
       - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
