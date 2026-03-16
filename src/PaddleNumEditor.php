@@ -1,0 +1,250 @@
+<?php
+
+require_once __DIR__ . '/Include/Config.php';
+require_once __DIR__ . '/Include/Functions.php';
+
+use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\Bootstrapper;
+use ChurchCRM\Utils\InputUtils;
+use ChurchCRM\Utils\RedirectUtils;
+use Propel\Runtime\Propel;
+
+$dbDriver = strtolower((string) (getenv('CHURCHCRM_DB_DRIVER') ?: ($GLOBALS['sDATABASEDriver'] ?? 'mysql')));
+$isSqlite = $dbDriver === 'sqlite';
+$dbConnection = $isSqlite ? Propel::getConnection() : null;
+
+function paddleNumEditorDbQuery(string $sql)
+{
+    global $isSqlite, $dbConnection;
+
+    if (!$isSqlite) {
+        return RunQuery($sql);
+    }
+
+    $stmt = $dbConnection->prepare($sql);
+    $stmt->execute();
+
+    return ['rows' => $stmt->fetchAll(\PDO::FETCH_BOTH), 'index' => 0];
+}
+
+function paddleNumEditorDbFetchArray(&$result)
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        if ($result['index'] >= count($result['rows'])) {
+            return false;
+        }
+        $row = $result['rows'][$result['index']];
+        $result['index']++;
+        return $row;
+    }
+
+    return mysqli_fetch_array($result);
+}
+
+$iPaddleNumID = InputUtils::legacyFilterInputArr($_GET, 'PaddleNumID', 'int');
+$linkBack = RedirectUtils::getLinkBackFromRequest('v2/dashboard');
+
+if ($iPaddleNumID > 0) {
+    $sSQL = "SELECT * FROM paddlenum_pn WHERE pn_ID = '$iPaddleNumID'";
+    $rsPaddleNum = paddleNumEditorDbQuery($sSQL);
+    $thePaddleNum = paddleNumEditorDbFetchArray($rsPaddleNum);
+    $iCurrentFundraiser = $thePaddleNum['pn_fr_ID'];
+} else {
+    $iCurrentFundraiser = $_SESSION['iCurrentFundraiser'];
+}
+
+if ($iCurrentFundraiser == '') {
+    Bootstrapper::systemFailure('No active Fundraiser', 'System Error');
+}
+
+// Get the current fundraiser data
+if ($iCurrentFundraiser) {
+    $sSQL = 'SELECT * from fundraiser_fr WHERE fr_ID = ' . $iCurrentFundraiser;
+    $rsDeposit = paddleNumEditorDbQuery($sSQL);
+    extract(paddleNumEditorDbFetchArray($rsDeposit));
+}
+
+// SQL to get multibuy items
+$sMultibuyItemsSQL = "SELECT di_ID, di_title FROM donateditem_di WHERE di_multibuy='1' AND di_FR_ID=" . $iCurrentFundraiser;
+
+$sPageTitle = gettext('Buyer Number Editor');
+
+// Is this the second pass?
+if (isset($_POST['PaddleNumSubmit']) || isset($_POST['PaddleNumSubmitAndAdd']) || isset($_POST['GenerateStatement'])) {
+    //Get all the variables from the request object and assign them locally
+    $iNum = (int) InputUtils::legacyFilterInput($_POST['Num']);
+    $iPerID = (int) InputUtils::legacyFilterInput($_POST['PerID']);
+
+    $rsMBItems = paddleNumEditorDbQuery($sMultibuyItemsSQL); // Go through the multibuy items, see if this person bought any
+    while ($aRow = paddleNumEditorDbFetchArray($rsMBItems)) {
+        extract($aRow);
+        $mbName = 'MBItem' . $di_ID;
+        $iMBCount = (int) InputUtils::legacyFilterInput($_POST[$mbName], 'int');
+        if ($iMBCount > 0) { // count for this item is positive.  If a multibuy record exists, update it.  If not, create it.
+            $sqlNumBought = 'SELECT mb_count from multibuy_mb WHERE mb_per_ID=' . $iPerID . ' AND mb_item_ID=' . (int)$di_ID;
+            $rsNumBought = paddleNumEditorDbQuery($sqlNumBought);
+            $numBoughtRow = paddleNumEditorDbFetchArray($rsNumBought);
+            if ($numBoughtRow) {
+                $sSQL = 'UPDATE multibuy_mb SET mb_count=' . $iMBCount . ' WHERE mb_per_ID=' . $iPerID . ' AND mb_item_ID=' . (int)$di_ID;
+                paddleNumEditorDbQuery($sSQL);
+            } else {
+                $sSQL = 'INSERT INTO multibuy_mb (mb_per_ID, mb_item_ID, mb_count) VALUES (' . $iPerID . ',' . (int)$di_ID . ',' . $iMBCount . ')';
+                paddleNumEditorDbQuery($sSQL);
+            }
+        } else { // count is zero, if it was positive before there is a multibuy record that needs to be deleted
+            $sSQL = 'DELETE FROM multibuy_mb WHERE mb_per_ID=' . $iPerID . ' AND mb_item_ID=' . (int)$di_ID;
+            paddleNumEditorDbQuery($sSQL);
+        }
+    }
+
+    // New PaddleNum
+    if (strlen($iPaddleNumID) < 1) {
+        $sSQL = 'INSERT INTO paddlenum_pn (pn_fr_ID, pn_Num, pn_per_ID)
+                 VALUES (' . (int)$iCurrentFundraiser . ',' . $iNum . ',' . $iPerID . ')';
+        $bGetKeyBack = true;
+        // Existing record (update)
+    } else {
+        $sSQL = 'UPDATE paddlenum_pn SET pn_fr_ID = ' . (int)$iCurrentFundraiser . ', pn_Num = ' . $iNum . ', pn_per_ID = ' . $iPerID;
+        $sSQL .= ' WHERE pn_ID = ' . $iPaddleNumID;
+        $bGetKeyBack = false;
+    }
+
+    //Execute the SQL
+    paddleNumEditorDbQuery($sSQL);
+
+    // If this is a new PaddleNum or deposit, get the key back
+    if ($bGetKeyBack) {
+        $sSQL = 'SELECT MAX(pn_ID) AS iPaddleNumID FROM paddlenum_pn';
+        $rsPaddleNumID = paddleNumEditorDbQuery($sSQL);
+        extract(paddleNumEditorDbFetchArray($rsPaddleNumID));
+    }
+
+    if (isset($_POST['PaddleNumSubmit'])) {
+        RedirectUtils::redirect('PaddleNumEditor.php?PaddleNumID=' . $iPaddleNumID . '&linkBack=' . $linkBack);
+    } elseif (isset($_POST['PaddleNumSubmitAndAdd'])) {
+        //Reload to editor to add another record
+        RedirectUtils::redirect("PaddleNumEditor.php?CurrentFundraiser=$iCurrentFundraiser&linkBack=" . $linkBack);
+    } elseif (isset($_POST['GenerateStatement'])) {
+        //Jump straight to generating the statement report
+        RedirectUtils::redirect("Reports/FundRaiserStatement.php?PaddleNumID=$iPaddleNumID");
+    }
+} else {
+    //FirstPass
+    //Are we editing or adding?
+    if (strlen($iPaddleNumID) > 0) {
+        //Editing....
+        //Get all the data on this record
+        $sSQL = "SELECT pn_ID, pn_fr_ID, pn_Num, pn_per_ID,
+                           a.per_FirstName as buyerFirstName, a.per_LastName as buyerLastName
+             FROM paddlenum_pn
+             LEFT JOIN person_per a ON pn_per_ID=a.per_ID
+             WHERE pn_ID = '" . $iPaddleNumID . "'";
+        $rsPaddleNum = paddleNumEditorDbQuery($sSQL);
+        extract(paddleNumEditorDbFetchArray($rsPaddleNum));
+
+        $iNum = $pn_Num;
+        $iPerID = $pn_per_ID;
+    } else {
+        //Adding....
+        //Set defaults
+        $sSQL = 'SELECT COUNT(*) AS topNum FROM paddlenum_pn WHERE pn_fr_ID=' . $iCurrentFundraiser;
+        $rsGetMaxNum = paddleNumEditorDbQuery($sSQL);
+        extract(paddleNumEditorDbFetchArray($rsGetMaxNum));
+
+        $iNum = $topNum + 1;
+        $iPerID = 0;
+    }
+}
+
+//Get People for the drop-down
+$sPeopleSQL = 'SELECT per_ID, per_FirstName, per_LastName, fam_Address1, fam_City, fam_State FROM person_per JOIN family_fam on per_fam_id=fam_id ORDER BY per_LastName, per_FirstName';
+
+require_once __DIR__ . '/Include/Header.php';
+
+?>
+<div class="card card-body">
+    <form method="post" action="PaddleNumEditor.php?<?= 'CurrentFundraiser=' . $iCurrentFundraiser . '&PaddleNumID=' . $iPaddleNumID . '&linkBack=' . $linkBack ?>" name="PaddleNumEditor">
+        <div class="table-responsive">
+            <table class="table mx-auto">
+                <tr>
+                    <td class="text-center">
+                        <input type="submit" class="btn btn-secondary" value="<?= gettext('Save') ?>" name="PaddleNumSubmit">
+                        <input type="submit" class="btn btn-secondary" value="<?= gettext('Generate Statement') ?>" name="GenerateStatement">
+                        <?php if (AuthenticationManager::getCurrentUser()->isAddRecordsEnabled()) {
+                            echo '<input type="submit" class="btn btn-secondary" value="' . gettext('Save and Add') . "\" name=\"PaddleNumSubmitAndAdd\">\n";
+                        } ?>
+                        <input type="button" class="btn btn-secondary" value="<?= gettext('Back') ?>" name="PaddleNumCancel" onclick="document.location='<?= RedirectUtils::escapeRedirectUrl($linkBack, 'v2/dashboard') ?>';">
+                    </td>
+                </tr>
+
+                <tr>
+                    <td>
+                        <table width="100%" cellspacing="0" cellpadding="4">
+                            <tr>
+                                <td width="50%" class="align-top" align="left">
+                                    <table cellpadding="3">
+                                        <tr>
+                                            <td class="LabelColumn"><?= gettext('Number') ?>:</td>
+                                            <td class="TextColumn"><input type="text" name="Num" id="Num" value="<?= $iNum ?>"></td>
+                                        </tr>
+
+                                        <tr>
+                                            <td class="LabelColumn"><?= gettext('Buyer') ?>:
+                                            </td>
+                                            <td class="TextColumn">
+                                                <select name="PerID">
+                                                    <option value="0" selected><?= gettext('Unassigned') ?></option>
+                                                    <?php
+                                                    $rsPeople = paddleNumEditorDbQuery($sPeopleSQL);
+                                                    while ($aRow = paddleNumEditorDbFetchArray($rsPeople)) {
+                                                        extract($aRow);
+                                                        echo '<option value="' . (int)$per_ID . '"';
+                                                        if ($iPerID == $per_ID) {
+                                                            echo ' selected';
+                                                        }
+                                                        echo '>' . InputUtils::escapeHTML($per_LastName) . ', ' . InputUtils::escapeHTML($per_FirstName);
+                                                        echo ' ' . InputUtils::escapeHTML(FormatAddressLine($fam_Address1, $fam_City, $fam_State));
+                                                    }
+                                                    ?>
+
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+
+                                <td width="50%" class="align-top text-center">
+                                    <table cellpadding="3">
+                                        <?php
+                                        $rsMBItems = paddleNumEditorDbQuery($sMultibuyItemsSQL);
+                                        while ($aRow = paddleNumEditorDbFetchArray($rsMBItems)) {
+                                            extract($aRow);
+
+                                            $sqlNumBought = 'SELECT mb_count from multibuy_mb WHERE mb_per_ID=' . $iPerID . ' AND mb_item_ID=' . $di_ID;
+                                            $rsNumBought = paddleNumEditorDbQuery($sqlNumBought);
+                                            $numBoughtRow = paddleNumEditorDbFetchArray($rsNumBought);
+                                            if ($numBoughtRow) {
+                                                extract($numBoughtRow);
+                                            } else {
+                                                $mb_count = 0;
+                                            } ?>
+                                            <tr>
+                                                <td class="LabelColumn"><?= InputUtils::escapeHTML($di_title) ?></td>
+                                                <td class="TextColumn"><input type="text" name="MBItem<?= (int)$di_ID ?>" id="MBItem<?= (int)$di_ID ?>" value="<?= (int)$mb_count ?>"></td>
+                                            </tr>
+                                            <?php
+                                        }
+                                        ?>
+
+                                    </table>
+                                </td>
+                            </tr>
+
+                        </table>
+                </tr>
+            </table>
+        </div>
+    </form>
+</div>
+<?php
+require_once __DIR__ . '/Include/Footer.php';

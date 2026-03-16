@@ -1,0 +1,50 @@
+@use "sass:meta";
+/*! DO NOT MANUALLY EDIT skin/churchcrm.min.css
+
+    Please make changes to skin/scss/*.scss and recompile with SASS. http://sass-lang.com/
+
+    sass --watch src/skin/churchcrm.scss:src/skin/churchcrm.min.css --style compressed
+
+*/
+
+// Import Libraries
+
+// The only library we do not embed is Bootstrap, because it's very big
+// External CSS moved to <head> links to avoid Sass parsing of minified vendor files.
+
+// Import ChurchCRM custom styles
+
+// Utility Classes - Reusable CSS classes for common styling patterns
+@include meta.load-css("scss/utility-classes");
+
+// UI Components - Custom ChurchCRM UI elements
+@include meta.load-css("scss/ui-components");
+
+@include meta.load-css("scss/brand");
+
+@include meta.load-css("scss/dropdowns");
+@include meta.load-css("scss/events");
+@include meta.load-css("scss/forms");
+@include meta.load-css("scss/tables");
+@include meta.load-css("scss/financial-reports");
+@include meta.load-css("scss/images");
+@include meta.load-css("scss/shortConfig");
+@include meta.load-css("scss/leftNav");
+@include meta.load-css("scss/imageOverlay");
+@include meta.load-css("scss/maps");
+@include meta.load-css("scss/SystemNotifications");
+@include meta.load-css("scss/cart");
+@include meta.load-css("scss/calendars");
+@include meta.load-css("scss/react-datepicker");
+@include meta.load-css("scss/_two-factor-enrollment");
+@include meta.load-css("scss/systemSettings");
+@include meta.load-css("scss/kiosk");
+@include meta.load-css("scss/groups");
+@include meta.load-css("scss/finance");
+@include meta.load-css("scss/dashboard");
+@include meta.load-css("scss/people-list");
+
+html,
+body {
+    font-size: 14px;
+}

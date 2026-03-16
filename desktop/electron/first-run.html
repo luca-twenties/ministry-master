@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ministry Master Setup</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f3ee;
+        --ink: #2a221c;
+        --accent: #3c6e59;
+        --accent-strong: #2c5443;
+        --card: #ffffff;
+        --muted: #756a5c;
+        --border: #e2d8cc;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "EB Garamond", "Crimson Text", "Georgia", serif;
+        background: radial-gradient(circle at top, #fff 0%, var(--bg) 55%, #efe7dd 100%);
+        color: var(--ink);
+      }
+
+      main {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 48px 24px;
+      }
+
+      .card {
+        width: min(760px, 100%);
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 36px 36px 32px;
+        box-shadow: 0 20px 40px rgba(28, 22, 18, 0.08);
+      }
+
+      h1 {
+        font-size: 2.4rem;
+        margin: 0 0 12px;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 1.05rem;
+      }
+
+      .credentials {
+        border: 1px dashed var(--border);
+        background: #fbf9f6;
+        border-radius: 12px;
+        padding: 18px;
+        margin: 20px 0;
+        font-family: "Courier New", monospace;
+        font-size: 1.05rem;
+      }
+
+      .credentials strong {
+        display: inline-block;
+        width: 120px;
+        color: var(--ink);
+      }
+
+      .path {
+        margin-top: 12px;
+        font-size: 0.95rem;
+        color: var(--muted);
+      }
+
+      .actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 24px;
+      }
+
+      button {
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 10px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background 150ms ease;
+      }
+
+      button:hover {
+        background: var(--accent-strong);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <h1>Welcome to Ministry Master</h1>
+        <p>This is your first launch. We created a local admin account for you. Save these credentials now.</p>
+        <div class="credentials">
+          <div><strong>Username</strong> <span id="username"></span></div>
+          <div><strong>Password</strong> <span id="password"></span></div>
+        </div>
+        <p class="path">
+          A copy is stored locally at <span id="dataDir"></span>/standalone-admin.json
+        </p>
+        <div class="actions">
+          <button id="continue">Continue to Login</button>
+        </div>
+      </section>
+    </main>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      document.getElementById("username").textContent = params.get("username") || "";
+      document.getElementById("password").textContent = params.get("password") || "";
+      document.getElementById("dataDir").textContent = params.get("dataDir") || "";
+
+      document.getElementById("continue").addEventListener("click", () => {
+        if (window.standalone?.continueToApp) {
+          window.standalone.continueToApp();
+        }
+      });
+    </script>
+  </body>
+</html>

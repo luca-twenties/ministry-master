@@ -1,0 +1,53 @@
+## Directory-based project format:
+.vscode/
+.idea/
+.DS_Store
+
+# Environment variables (local and overrides)
+.env
+.env.local
+
+#Exclude folders
+vendor
+node_modules
+temp
+desktop/electron/dist/
+/desktop/electron/dist/
+/desktop/electron/php/
+*.log
+
+# Locale build artifacts
+locale/terms/base
+
+# Uploaded Images
+src/Images/Family/*
+src/Images/Person/*
+# Keep the directories for CI/fresh installs
+!src/Images/Family/.gitkeep
+!src/Images/Person/.gitkeep
+
+#skins
+src/skin/v2/
+src/skin/external
+
+# Configuration files with passwords
+src/Include/Config.php
+orm/propel.php
+
+# Perpl/Propel generated config
+src/generated-conf/
+
+src/admin/data/signatures.json
+src/ChurchCRM/model/ChurchCRM/Base
+src/ChurchCRM/model/ChurchCRM/Map
+
+src/integrityCheck.json
+src/logs/*.log
+
+cypress/screenshots
+cypress/videos
+cypress/downloads
+cypress.config.ts
+cypress.env.json
+
+.gitnexus

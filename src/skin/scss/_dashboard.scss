@@ -1,0 +1,63 @@
+/**
+ * Premium dashboard styling
+ */
+
+.dashboard-premium {
+  .small-box {
+    border-radius: 18px;
+    box-shadow: 0 12px 24px rgba(12, 18, 24, 0.12);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .small-box .inner h3 {
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+  }
+
+  .small-box .inner p {
+    font-size: 0.95rem;
+    opacity: 0.85;
+  }
+
+  .small-box .icon {
+    opacity: 0.18;
+    top: 10px;
+    right: 12px;
+  }
+
+  .small-box-footer {
+    background: rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    font-weight: 500;
+  }
+
+  .card {
+    border-radius: 16px;
+    box-shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
+    border: 1px solid rgba(15, 23, 32, 0.06);
+  }
+
+  .card-header {
+    border-bottom: 1px solid rgba(15, 23, 32, 0.08);
+    background: rgba(255, 255, 255, 0.92);
+  }
+
+  .nav-tabs .nav-link {
+    border-radius: 12px 12px 0 0;
+    padding: 0.6rem 1rem;
+    font-weight: 600;
+    color: #2b3a47;
+  }
+
+  .nav-tabs .nav-link.active {
+    background: #ffffff;
+    border-color: rgba(15, 23, 32, 0.12);
+    color: #0f1a24;
+  }
+
+  #birthdayCard,
+  #anniversaryCard {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, #f8f5f0 100%);
+  }
+}

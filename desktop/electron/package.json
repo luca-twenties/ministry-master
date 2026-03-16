@@ -1,0 +1,60 @@
+{
+  "name": "ministry-master-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "npx electron .",
+    "pack": "npx electron-builder --dir",
+    "dist": "npx electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^32.3.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "io.ministry.master.desktop",
+    "productName": "Ministry Master",
+    "electronDist": "node_modules/electron/dist",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../../src",
+        "to": "app/src"
+      },
+      {
+        "from": "../../react",
+        "to": "app/react"
+      },
+      {
+        "from": "../../src/vendor",
+        "to": "app/src/vendor"
+      },
+      {
+        "from": "./php",
+        "to": "php"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  }
+}

@@ -1,0 +1,555 @@
+<?php
+
+require_once __DIR__ . '/Include/Config.php';
+require_once __DIR__ . '/Include/Functions.php';
+
+use ChurchCRM\dto\SystemURLs;
+use Propel\Runtime\Propel;
+
+$dbDriver = strtolower((string) (getenv('CHURCHCRM_DB_DRIVER') ?: ($GLOBALS['sDATABASEDriver'] ?? 'mysql')));
+$isSqlite = $dbDriver === 'sqlite';
+$dbConnection = $isSqlite ? Propel::getConnection() : null;
+
+function csvExportDbQuery(string $sql)
+{
+    global $isSqlite, $dbConnection;
+
+    if (!$isSqlite) {
+        return RunQuery($sql);
+    }
+
+    $stmt = $dbConnection->prepare($sql);
+    $stmt->execute();
+
+    return ['rows' => $stmt->fetchAll(\PDO::FETCH_BOTH), 'index' => 0];
+}
+
+function csvExportDbNumRows($result): int
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        return count($result['rows']);
+    }
+
+    return mysqli_num_rows($result);
+}
+
+function csvExportDbFetchArray(&$result, $mode = null)
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        if ($result['index'] >= count($result['rows'])) {
+            return false;
+        }
+        $row = $result['rows'][$result['index']];
+        $result['index']++;
+        return $row;
+    }
+
+    if ($mode === null) {
+        $mode = defined('MYSQLI_BOTH') ? MYSQLI_BOTH : \PDO::FETCH_BOTH;
+    }
+
+    return mysqli_fetch_array($result, $mode);
+}
+
+// Get Classifications for the drop-down
+$sSQL = 'SELECT * FROM list_lst WHERE lst_ID = 1 ORDER BY lst_OptionSequence';
+$rsClassifications = csvExportDbQuery($sSQL);
+
+// Get Family Roles for the drop-down
+$sSQL = 'SELECT * FROM list_lst WHERE lst_ID = 2 ORDER BY lst_OptionSequence';
+$rsFamilyRoles = csvExportDbQuery($sSQL);
+
+// Get all the Groups
+$sSQL = 'SELECT * FROM group_grp ORDER BY grp_Name';
+$rsGroups = csvExportDbQuery($sSQL);
+
+$sSQL = 'SELECT person_custom_master.* FROM person_custom_master ORDER BY custom_Order';
+$rsCustomFields = csvExportDbQuery($sSQL);
+$numCustomFields = csvExportDbNumRows($rsCustomFields);
+
+$sSQL = 'SELECT family_custom_master.* FROM family_custom_master ORDER BY fam_custom_Order';
+$rsFamCustomFields = csvExportDbQuery($sSQL);
+$numFamCustomFields = csvExportDbNumRows($rsFamCustomFields);
+
+// Get Field Security List Matrix
+$sSQL = 'SELECT * FROM list_lst WHERE lst_ID = 5 ORDER BY lst_OptionSequence';
+$rsSecurityGrp = csvExportDbQuery($sSQL);
+
+while ($aRow = csvExportDbFetchArray($rsSecurityGrp)) {
+    extract($aRow);
+    $aSecurityType[$lst_OptionID] = $lst_OptionName;
+}
+
+$sPageTitle = gettext('CSV Export');
+require_once __DIR__ . '/Include/Header.php';
+?>
+<form method="post" action="CSVCreateFile.php">
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><?= gettext('Field Selection') ?></h3>
+        </div>
+        <div class="card-body">
+          <div class="col-md-4">
+            <label><?= gettext('Last Name') ?>:</label>
+            <?= gettext('Required') ?>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Title') ?>:</label>
+            <input type="checkbox" name="Title" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('First Name') ?>:</label>
+            <input type="checkbox" name="FirstName" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Middle Name') ?>:</label>
+            <input type="checkbox" name="MiddleName" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Suffix') ?>:</label>
+            <input type="checkbox" name="Suffix" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Address') ?> 1:</label>
+            <input type="checkbox" name="Address1" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Address') ?> 2:</label>
+            <input type="checkbox" name="Address2" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('City') ?>:</label>
+            <input type="checkbox" name="City" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('State') ?>:</label>
+            <input type="checkbox" name="State" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Zip') ?>:</label>
+            <input type="checkbox" name="Zip" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Envelope') ?>:</label>
+            <input type="checkbox" name="Envelope" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Country') ?>:</label>
+            <input type="checkbox" name="Country" value="1" checked>
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Home Phone') ?>:</label>
+            <input type="checkbox" name="HomePhone" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Work Phone') ?>:</label>
+            <input type="checkbox" name="WorkPhone" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Mobile Phone') ?>:</label>
+            <input type="checkbox" name="CellPhone" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Email') ?>:</label>
+            <input type="checkbox" name="Email" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Work/Other Email') ?>:</label>
+            <input type="checkbox" name="WorkEmail" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Membership Date') ?>:</label>
+            <input type="checkbox" name="MembershipDate" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label>* <?= gettext('Birth Date') . ' / ' . gettext('Anniversary Date') ?>:</label>
+            <input type="checkbox" name="BirthdayDate" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label>* <?= gettext('Age / Years Married') ?>:</label>
+            <input type="checkbox" name="Age" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Classification') ?>:</label>
+            <input type="checkbox" name="PrintMembershipStatus" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Family Role') ?>:</label>
+            <input type="checkbox" name="PrintFamilyRole" value="1">
+          </div>
+
+          <div class="col-md-4">
+            <label><?= gettext('Gender') ?>:</label>
+            <input type="checkbox" name="PrintGender" value="1">
+          </div>
+
+          <div class="col-md-12">
+            * <?= gettext('Depends whether using person or family output method') ?>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <?php
+    if ($numCustomFields > 0 || $numFamCustomFields > 0) {
+        ?>
+    <div class="row">
+      <div class="col-lg-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title"><?= gettext('Custom Field Selection') ?></h3>
+          </div>
+          <div class="card-body">
+            <table>
+              <?php
+                if ($numCustomFields > 0) {
+                    ?>
+                <tr><td width="100%" class="align-top" align="left">
+                    <h3><?= gettext('Custom Person Fields') ?></h3>
+                    <table cellpadding="4" align="left">
+                      <?php
+                        // Display the custom fields
+                        while ($Row = csvExportDbFetchArray($rsCustomFields)) {
+                            extract($Row);
+                            if ($aSecurityType[$custom_FieldSec] == 'bAll' || $_SESSION[$aSecurityType[$custom_FieldSec]]) {
+                                echo '<tr><td class="LabelColumn">' . $custom_Name . '</td>';
+                                echo '<td class="TextColumn"><input type="checkbox" name=' . $custom_Field . ' value="1"></td></tr>';
+                            }
+                        } ?>
+                    </table>
+                  </td></tr>
+                    <?php
+                }
+                if ($numFamCustomFields > 0) {
+                    ?>
+                <tr><td width="100%" class="align-top" align="left">
+                    <h3><?= gettext('Custom Family Fields') ?></h3>
+                    <table cellpadding="4" align="left">
+                      <?php
+                              // Display the family custom fields
+                        while ($Row = csvExportDbFetchArray($rsFamCustomFields)) {
+                            extract($Row);
+                            if ($aSecurityType[$fam_custom_FieldSec] == 'bAll' || $_SESSION[$aSecurityType[$fam_custom_FieldSec]]) {
+                                echo '<tr><td class="LabelColumn">' . $fam_custom_Name . '</td>';
+                                echo '<td class="TextColumn"><input type="checkbox" name=' . $fam_custom_Field . ' value="1"></td></tr>';
+                            }
+                        } ?>
+                    </table>
+                  </td></tr>
+                              <?php
+                } ?>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+        <?php
+    } ?>
+
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><?= gettext('Filters') ?></h3>
+        </div>
+        <div class="card-body">
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Records to export') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <select name="Source">
+                  <option value="filters"><?= gettext('Based on filters below..') ?></option>
+                  <option value="cart" <?php if (array_key_exists('Source', $_GET) && $_GET['Source'] == 'cart') {
+                        echo 'selected';
+                                       } ?>><?= gettext('People in Cart (filters ignored)') ?></option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Classification') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <select name="Classification[]" size="5" multiple>
+                  <?php
+                    while ($aRow = csvExportDbFetchArray($rsClassifications)) {
+                        extract($aRow); ?>
+                    <option value="<?= $lst_OptionID ?>"><?= $lst_OptionName ?></option>
+                        <?php
+                    }
+                    ?>
+                </select>
+                <div class="SmallText"><?= gettext('Use Ctrl Key to select multiple') ?></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Family Role') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <select name="FamilyRole[]" size="5" multiple>
+                  <?php
+                    while ($aRow = csvExportDbFetchArray($rsFamilyRoles)) {
+                        extract($aRow); ?>
+                    <option value="<?= $lst_OptionID ?>"><?= $lst_OptionName ?></option>
+                        <?php
+                    }
+                    ?>
+                </select>
+                <div class="SmallText"><?= gettext('Use Ctrl Key to select multiple') ?></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Gender') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <select name="Gender">
+                  <option value="0"><?= gettext("Don't Filter") ?></option>
+                  <option value="1"><?= gettext('Male') ?></option>
+                  <option value="2"><?= gettext('Female') ?></option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Group Membership') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="card-body p-0">
+                <div class="SmallText"><?= gettext('Use Ctrl Key to select multiple') ?></div>
+                <select name="GroupID[]" size="5" multiple>
+                  <?php
+                    while ($aRow = csvExportDbFetchArray($rsGroups)) {
+                        extract($aRow);
+                        echo '<option value="' . $grp_ID . '">' . $grp_Name . '</option>';
+                    }
+                    ?>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Membership Date') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+                <div class="card-body p-0">
+                <?= gettext('From') ?>:&nbsp;</b></td><td><input id="MembershipDate1" class="date-picker" type="text" name="MembershipDate1" size="11" maxlength="10">
+                  <?= gettext('To') ?>:&nbsp;</b></td><td><input id="MembershipDate2" class="date-picker" type="text" name="MembershipDate2" size="11" maxlength="10" value="<?php echo date('Y-m-d'); ?>">
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Birth Date') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+                <div class="card-body p-0">
+                <b><?= gettext('From') ?>:&nbsp;</b><input type="text" name="BirthDate1" class="date-picker" size="11" maxlength="10" id="BirthdayDate1">
+                <b><?= gettext('To') ?>:&nbsp;</b><input type="text" name="BirthDate2" class="date-picker" size="11" maxlength="10" value="<?= date('Y-m-d') ?>"  id="BirthdayDate2">
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Anniversary Date') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+                <div class="card-body p-0">
+                <?= gettext('From') ?>:&nbsp;</b></td><td><input type="text" class="date-picker" name="AnniversaryDate1" size="11" maxlength="10" id="AnniversaryDate1">
+                  <?= gettext('To') ?>:&nbsp;</b></td><td><input type="text" class="date-picker" name="AnniversaryDate2" size="11" maxlength="10" value="<?php echo date('Y-m-d'); ?>" id="AnniversaryDate2">
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-4">
+            <div class="card card-danger collapsed-box">
+              <div class="card-header">
+                <h3 class="card-title"><?= gettext('Date Entered') ?>:</h3>
+                <div class="card-tools float-right">
+                  <button type="button" class="btn btn-tool" data-card-widget="collapse"><i class="fa-solid fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+                <div class="card-body p-0">
+                <?= gettext('From') ?>:&nbsp;</b></td><td><input id="EnterDate1" type="text" name="EnterDate1" size="11" maxlength="10" class="date-picker">
+                  <?= gettext('To') ?>:&nbsp;</b></td><td><input id="EnterDate2" type="text" name="EnterDate2" size="11" maxlength="10" value="<?php echo date('Y-m-d'); ?>" class="date-picker">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><?= gettext('Output Method:') ?></h3>
+        </div>
+        <div class="card-body">
+          <select name="Format">
+            <option value="Default"><?= gettext('CSV Individual Records') ?></option>
+            <option value="Rollup"><?= gettext('CSV Combine Families') ?></option>
+            <option value="AddToCart"><?= gettext('Add Individuals to Cart') ?></option>
+          </select>
+
+          <label><?= gettext('Skip records with incomplete mail address') ?></label><input type="checkbox" name="SkipIncompleteAddr" value="1">
+
+          <input type="submit" class="btn btn-secondary" value=<?= '"' . gettext('Create File') . '"' ?> name="Submit"></td>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+  <div class="row">
+    <div class="col-lg-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title"><?= gettext('ChMeetings Export') ?></h3>
+        </div>
+        <div class="card-body">
+          <p><?= gettext('Export all people data in ChMeetings format for import into external systems.') ?></p>
+          <button type="button" class="btn btn-primary" id="exportChMeetingsBtn">
+            <i class="fa-solid fa-download"></i> <?= gettext('Export to ChMeetings CSV') ?>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</form>
+
+<script>
+document.getElementById('exportChMeetingsBtn').addEventListener('click', function() {
+    var btn = this;
+    var originalText = btn.innerHTML;
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <?= gettext("Exporting...") ?>';
+    
+    var downloadUrl = window.CRM.root + '/admin/api/database/people/export/chmeetings';
+    
+    fetch(downloadUrl)
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error(response.statusText);
+            }
+            return response.blob();
+        })
+        .then(function(blob) {
+            // Trigger file download
+            var blobUrl = window.URL.createObjectURL(blob);
+            var link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = 'ChMeetings-' + new Date().toISOString().split('T')[0] + '.csv';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+            
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            
+            // Show success notification
+            window.CRM.notify(i18next.t('ChMeetings export completed successfully'), {
+                type: 'success',
+                delay: 3000
+            });
+        })
+        .catch(function(error) {
+            console.error('Export failed:', error);
+            
+            // Restore button state
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            
+            // Show error notification
+            window.CRM.notify(i18next.t('Failed to export ChMeetings CSV'), {
+                type: 'error',
+                delay: 3000
+            });
+        });
+});
+</script>
+
+<?php
+require_once __DIR__ . '/Include/Footer.php';

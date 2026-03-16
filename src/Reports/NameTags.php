@@ -1,0 +1,112 @@
+<?php
+
+require_once __DIR__ . '/../Include/Config.php';
+require_once __DIR__ . '/../Include/Functions.php';
+
+use ChurchCRM\dto\SystemConfig;
+use ChurchCRM\Reports\PdfLabel;
+use ChurchCRM\Utils\InputUtils;
+use Propel\Runtime\Propel;
+
+$dbDriver = strtolower((string) (getenv('CHURCHCRM_DB_DRIVER') ?: ($GLOBALS['sDATABASEDriver'] ?? 'mysql')));
+$isSqlite = $dbDriver === 'sqlite';
+$dbConnection = $isSqlite ? Propel::getConnection() : null;
+
+function nameTagsDbQuery(string $sql)
+{
+    global $isSqlite, $dbConnection;
+
+    if (!$isSqlite) {
+        return RunQuery($sql);
+    }
+
+    $stmt = $dbConnection->prepare($sql);
+    $stmt->execute();
+
+    return ['rows' => $stmt->fetchAll(\PDO::FETCH_BOTH), 'index' => 0];
+}
+
+function nameTagsDbFetchArray(&$result)
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        if ($result['index'] >= count($result['rows'])) {
+            return false;
+        }
+        $row = $result['rows'][$result['index']];
+        $result['index']++;
+        return $row;
+    }
+
+    return mysqli_fetch_array($result);
+}
+
+$sLabelFormat = InputUtils::legacyFilterInput($_GET['labeltype']);
+setcookie('labeltype', $sLabelFormat, ['expires' => time() + 60 * 60 * 24 * 90, 'path' => '/']);
+
+$pdf = new PdfLabel($sLabelFormat);
+
+$sFontInfo = FontFromName($_GET['labelfont']);
+setcookie('labelfont', $_GET['labelfont'], ['expires' => time() + 60 * 60 * 24 * 90, 'path' => '/']);
+$sFontSize = $_GET['labelfontsize'];
+setcookie('labelfontsize', $sFontSize, ['expires' => time() + 60 * 60 * 24 * 90, 'path' => '/']);
+$pdf->SetFont($sFontInfo[0], $sFontInfo[1]);
+
+if ($sFontSize != 'default') {
+    $pdf->setCharSize($sFontSize);
+}
+
+$sSQL = 'SELECT * FROM person_per WHERE per_ID IN (' . convertCartToString($_SESSION['aPeopleCart']) . ') ORDER BY per_LastName';
+$rsPersons = nameTagsDbQuery($sSQL);
+
+while ($aPer = nameTagsDbFetchArray($rsPersons)) {
+    extract($aPer);
+
+    $PosX = $pdf->_Margin_Left + ($pdf->_COUNTX * ($pdf->_Width + $pdf->_X_Space));
+    $PosY = $pdf->_Margin_Top + ($pdf->_COUNTY * ($pdf->_Height + $pdf->_Y_Space));
+
+    $perimg = '../Images/Person/' . $per_ID . '.jpg';
+    if (file_exists($perimg)) {
+        $s = getimagesize($perimg);
+        $h = ($pdf->_Width / $s[0]) * $s[1];
+        if ($h > $pdf->_Height) {
+            $useWidth = $pdf->_Width * $pdf->_Height / $h;
+        } else {
+            $useWidth = $pdf->_Width;
+        }
+
+        $pdf->Image($perimg, $PosX, $PosY, $useWidth);
+
+        $labelStr = sprintf("%s\n%s\n\n%d", $per_FirstName, $per_LastName, $per_ID);
+
+        $firstWid = $pdf->GetStringWidth($per_FirstName);
+        $lastWid = $pdf->GetStringWidth($per_LastName);
+        $maxWid = max($firstWid, $lastWid);
+        $useWid = $pdf->_Width / 2 - 2;
+
+        if ($maxWid > $useWid) {
+            $useFontSize = (int) ($sFontSize * $useWid / $maxWid);
+            $pdf->setCharSize($useFontSize);
+        }
+
+        $pdf->SetXY($PosX + $pdf->_Width / 2, $PosY + 3);
+        $pdf->MultiCell($pdf->_Width / 2, $pdf->_Line_Height, $pdf->convertToLatin1($labelStr));
+        $pdf->setCharSize($sFontSize);
+        $pdf->addPdfLabel('');
+    } else {
+        $labelStr = sprintf("%s %s\n\n%d", $per_FirstName, $per_LastName, $per_ID);
+        $nameWid = $pdf->GetStringWidth($per_FirstName . ' ' . $per_LastName);
+        $useWid = $pdf->_Width - 2;
+        if ($nameWid > $useWid) {
+            $useFontSize = (int) ($sFontSize * $useWid / $nameWid);
+            $pdf->setCharSize($useFontSize);
+        }
+        $pdf->addPdfLabel($labelStr);
+        $pdf->setCharSize($sFontSize);
+    }
+}
+
+if (SystemConfig::getIntValue('iPDFOutputType') === 1) {
+    $pdf->Output('NameTags' . date(SystemConfig::getValue('sDateFilenameFormat')) . '.pdf', 'D');
+} else {
+    $pdf->Output();
+}

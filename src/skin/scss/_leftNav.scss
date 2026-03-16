@@ -1,0 +1,114 @@
+/**
+ * ChurchCRM Left Navigation Styles
+ *
+ * Custom styles for left sidebar navigation menu.
+ * Extends AdminLTE sidebar functionality with ChurchCRM-specific adjustments.
+ * Component-specific - no Bootstrap duplicates.
+ */
+
+// AdminLTE 3 sets white-space: nowrap on .user-panel — override to allow wrapping
+.main-sidebar .user-panel {
+  white-space: inherit;
+}
+
+// Premium SaaS sidebar treatment
+.main-sidebar {
+  background: linear-gradient(180deg, #0f1a24 0%, #101f2a 35%, #0d1822 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
+}
+
+.main-sidebar .brand-link {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.85rem 1.1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(14, 23, 32, 0.9);
+}
+
+.main-sidebar .brand-image {
+  border-radius: 14px;
+  box-shadow: 0 6px 16px rgba(4, 10, 14, 0.4);
+}
+
+.main-sidebar .brand-text {
+  letter-spacing: 0.02em;
+  font-size: 1.05rem;
+  color: #f4f0ea;
+}
+
+.main-sidebar .sidebar {
+  padding: 1rem 0.8rem 1.2rem;
+}
+
+.main-sidebar .nav-sidebar > .nav-item {
+  margin-bottom: 0.35rem;
+}
+
+.main-sidebar .nav-sidebar > .nav-item > .nav-link {
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  color: rgba(244, 240, 234, 0.72);
+  font-weight: 500;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.main-sidebar .nav-sidebar > .nav-item > .nav-link .nav-icon {
+  font-size: 0.9rem;
+  margin-right: 0.6rem;
+  color: rgba(244, 240, 234, 0.6);
+}
+
+.main-sidebar .nav-sidebar > .nav-item > .nav-link:hover {
+  background: rgba(76, 130, 102, 0.2);
+  color: #ffffff;
+  transform: translateX(2px);
+}
+
+.main-sidebar .nav-sidebar > .nav-item.menu-open > .nav-link,
+.main-sidebar .nav-sidebar > .nav-item > .nav-link.active {
+  background: rgba(76, 130, 102, 0.32);
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(116, 196, 154, 0.25);
+}
+
+.main-sidebar .nav-sidebar > .nav-item.menu-open > .nav-link .nav-icon,
+.main-sidebar .nav-sidebar > .nav-item > .nav-link.active .nav-icon {
+  color: #c8f1d8;
+}
+
+.main-sidebar .nav-treeview {
+  padding-left: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.main-sidebar .nav-treeview > .nav-item > .nav-link {
+  border-radius: 10px;
+  padding: 0.45rem 0.75rem;
+  color: rgba(244, 240, 234, 0.62);
+  font-size: 0.95rem;
+}
+
+.main-sidebar .nav-treeview > .nav-item > .nav-link:hover {
+  background: rgba(76, 130, 102, 0.16);
+  color: #ffffff;
+}
+
+.main-sidebar .nav-treeview > .nav-item > .nav-link.active {
+  background: rgba(76, 130, 102, 0.26);
+  color: #ffffff;
+}
+
+// Top navbar: search bar nav item (custom min/max-width — use flex-grow-1 on the <ul> instead)
+.navbar-search-item {
+  flex: 1 1 auto;
+  min-width: 150px;
+  max-width: 600px;
+  margin-left: 10px;
+}
+
+// Top navbar: search button removes double border with input
+.navbar-search-btn {
+  border-left: 0;
+}

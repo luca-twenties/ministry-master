@@ -1,0 +1,39 @@
+/* People List filter controls */
+
+.card.card-primary .select2-container {
+  width: 100% !important;
+}
+
+.card.card-primary .select2-container--default .select2-selection--multiple {
+  min-height: 42px;
+  padding: 4px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.card.card-primary .select2-container--default .select2-selection--multiple .select2-selection__rendered {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.card.card-primary .select2-container--default .select2-selection--multiple .select2-selection__choice {
+  margin: 2px 4px 2px 0;
+}
+
+.card.card-primary .select2-container--default .select2-selection--multiple .select2-search__field {
+  line-height: 1.4;
+  margin-top: 2px;
+  min-width: 120px;
+}
+
+.card.card-primary .select2-container--default .select2-selection--multiple .select2-selection__placeholder {
+  color: #6c757d;
+}
+
+.select2-dropdown {
+  z-index: 1051;
+}

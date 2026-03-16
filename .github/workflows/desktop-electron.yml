@@ -1,0 +1,81 @@
+name: Desktop Electron Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'desktop/electron/**'
+      - 'src/**'
+      - 'react/**'
+      - '.github/workflows/desktop-electron.yml'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+          cache-dependency-path: desktop/electron/pnpm-lock.yaml
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Setup PHP 8.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3, mbstring, intl, zip, curl, gd
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: |
+          cd src
+          composer install --no-dev --no-interaction --prefer-dist
+
+      - name: Install Electron dependencies
+        working-directory: desktop/electron
+        env:
+          PNPM_IGNORE_SCRIPTS: "false"
+        run: pnpm install
+
+      - name: Verify bundled PHP exists
+        shell: bash
+        run: |
+          node -e "console.log(process.platform + '-' + process.arch)"
+          PLATFORM_ARCH="$(node -e "process.stdout.write(process.platform + '-' + process.arch)")"
+          BIN_NAME="php"
+          if [ "$PLATFORM_ARCH" = "win32-x64" ] || [ "$PLATFORM_ARCH" = "win32-arm64" ]; then
+            BIN_NAME="php.exe"
+          fi
+          PHP_PATH="desktop/electron/php/$PLATFORM_ARCH/$BIN_NAME"
+          if [ ! -f "$PHP_PATH" ]; then
+            echo "Missing PHP binary: $PHP_PATH"
+            exit 1
+          fi
+          if [ "$RUNNER_OS" != "Windows" ]; then
+            chmod +x "$PHP_PATH"
+          fi
+
+      - name: Build Electron app
+        working-directory: desktop/electron
+        env:
+          PNPM_IGNORE_SCRIPTS: "false"
+        run: pnpm run dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-electron-${{ matrix.os }}
+          path: desktop/electron/dist/

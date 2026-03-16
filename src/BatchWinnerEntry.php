@@ -1,0 +1,171 @@
+<?php
+
+require_once __DIR__ . '/Include/Config.php';
+require_once __DIR__ . '/Include/Functions.php';
+
+use ChurchCRM\model\ChurchCRM\DonatedItemQuery;
+use ChurchCRM\Utils\InputUtils;
+use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Utils\LoggerUtils;
+use Propel\Runtime\Propel;
+
+$linkBack = RedirectUtils::getLinkBackFromRequest('v2/dashboard');
+$iCurrentFundraiser = InputUtils::filterInt($_GET['CurrentFundraiser']);
+
+$dbDriver = strtolower((string) (getenv('CHURCHCRM_DB_DRIVER') ?: ($GLOBALS['sDATABASEDriver'] ?? 'mysql')));
+$isSqlite = $dbDriver === 'sqlite';
+$dbConnection = $isSqlite ? Propel::getConnection() : null;
+
+function batchWinnerDbQuery(string $sql)
+{
+    global $isSqlite, $dbConnection;
+
+    if (!$isSqlite) {
+        return RunQuery($sql);
+    }
+
+    try {
+        $stmt = $dbConnection->query($sql);
+        if (!$stmt instanceof \PDOStatement) {
+            return false;
+        }
+        $rows = $stmt->fetchAll(\PDO::FETCH_BOTH);
+        return ['rows' => $rows, 'index' => 0];
+    } catch (\Throwable $e) {
+        LoggerUtils::getAppLogger()->error('SQLite query failed', ['sql' => $sql, 'exception' => $e]);
+        return false;
+    }
+}
+
+function batchWinnerDbFetchArray(&$result, ?int $mode = null)
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        if ($result['index'] >= count($result['rows'])) {
+            return false;
+        }
+        $row = $result['rows'][$result['index']];
+        $result['index']++;
+        return $row;
+    }
+
+    if ($mode === null) {
+        $mode = defined('MYSQLI_BOTH') ? MYSQLI_BOTH : \PDO::FETCH_BOTH;
+    }
+
+    return mysqli_fetch_array($result, $mode);
+}
+
+function batchWinnerDbDataSeek(&$result, int $offset): void
+{
+    if (is_array($result) && array_key_exists('rows', $result)) {
+        $result['index'] = $offset;
+        return;
+    }
+
+    mysqli_data_seek($result, $offset);
+}
+
+if ($iCurrentFundraiser >0) {
+    $sSQL = 'SELECT * from fundraiser_fr WHERE fr_ID = ' . $iCurrentFundraiser;
+    $rsDeposit = batchWinnerDbQuery($sSQL);
+    extract(batchWinnerDbFetchArray($rsDeposit));
+    $_SESSION['iCurrentFundraiser'] = $iCurrentFundraiser;
+} else {
+    $iCurrentFundraiser = $_SESSION['iCurrentFundraiser'];
+}
+
+
+$sPageTitle = gettext('Batch Winner Entry');
+
+// Is this the second pass?
+if (isset($_POST['EnterWinners'])) {
+    for ($row = 0; $row < 10; $row += 1) {
+        $buyer = $_POST["Paddle$row"];
+        $di = $_POST["Item$row"];
+        $price = $_POST["SellPrice$row"];
+        if ($buyer > 0 && $di > 0 && $price > 0) {
+            $donatedItem = DonatedItemQuery::create()->findOneById($di);
+            $donatedItem
+                ->setBuyerId($buyer)
+                ->setSellprice($price);
+            $donatedItem->save();
+        }
+    }
+    RedirectUtils::redirect($linkBack);
+}
+
+// Get Items for the drop-down
+$sDonatedItemsSQL = "SELECT di_ID, di_Item, di_title
+                     FROM donateditem_di
+                     WHERE di_FR_ID = '" . $iCurrentFundraiser . "' ORDER BY SUBSTR(di_Item,1,1), CONVERT(SUBSTR(di_Item,2,3),SIGNED)";
+$rsDonatedItems = batchWinnerDbQuery($sDonatedItemsSQL);
+
+//Get Paddles for the drop-down
+$sPaddleSQL = 'SELECT pn_Num, pn_per_ID,
+                      a.per_FirstName AS buyerFirstName,
+                      a.per_LastName AS buyerLastName
+                      FROM paddlenum_pn
+                      LEFT JOIN person_per a on a.per_ID=pn_per_ID
+                      WHERE pn_fr_ID=' . $iCurrentFundraiser . ' ORDER BY pn_Num';
+$rsPaddles = batchWinnerDbQuery($sPaddleSQL);
+
+require_once __DIR__ . '/Include/Header.php';
+
+?>
+<div class="card card-body">
+<form method="post" action="BatchWinnerEntry.php?<?= 'CurrentFundraiser=' . '&linkBack=' . $linkBack ?>" name="BatchWinnerEntry">
+<div class="table-responsive">
+<table class="table mx-auto">
+    <tr>
+        <td class="LabelColumn"><?= gettext('Item') ?></td>
+        <td class="LabelColumn"><?= gettext('Winner') ?></td>
+        <td class="LabelColumn"><?= gettext('Price') ?></td>
+    </tr>
+<?php
+for ($row = 0; $row < 10; $row += 1) {
+    echo '<tr>';
+    echo '<td>';
+    echo '<select name="Item' . $row . "\">\n";
+    echo '<option value="0" selected>' . gettext('Unassigned') . "</option>\n";
+
+    batchWinnerDbDataSeek($rsDonatedItems, 0);
+    while ($itemArr = batchWinnerDbFetchArray($rsDonatedItems)) {
+        $di_ID = $itemArr['di_ID'];
+        $di_Item = $itemArr['di_Item'];
+        $di_title = $itemArr['di_title'];
+        echo '<option value="' . (int)$di_ID . '">' . InputUtils::escapeHTML($di_Item) . ' ' . InputUtils::escapeHTML($di_title) . "</option>\n";
+    }
+    echo "</select>\n";
+    echo '</td>';
+
+    echo '<td>';
+    echo '<select name="Paddle' . $row . "\">\n";
+    echo '<option value="0" selected>' . gettext('Unassigned') . "</option>\n";
+
+    batchWinnerDbDataSeek($rsPaddles, 0);
+    while ($paddleArr = batchWinnerDbFetchArray($rsPaddles)) {
+        $pn_per_ID = $paddleArr['pn_per_ID'];
+        $pn_Num = $paddleArr['pn_Num'];
+        $buyerFirstName = $paddleArr['buyerFirstName'];
+        $buyerLastName = $paddleArr['buyerLastName'];
+        echo '<option value="' . (int)$pn_per_ID . '">' . (int)$pn_Num . ' ' . InputUtils::escapeHTML($buyerFirstName) . ' ' . InputUtils::escapeHTML($buyerLastName) . "</option>\n";
+    }
+    echo "</select>\n";
+    echo '</td>';
+
+    echo "<td class=\"TextColumn\"><input type=\"text\" name=\"SellPrice$row\" id=\"SellPrice\"$row value=\"\"></td>\n";
+    echo '</tr>';
+}
+?>
+    <tr>
+        <td colspan="2" class="text-center">
+            <input type="submit" class="btn btn-primary" value="<?= gettext('Enter Winners') ?>" name="EnterWinners">
+            <input type="button" class="btn btn-secondary" value="<?= gettext('Cancel') ?>" name="Cancel" onclick="document.location='<?= RedirectUtils::escapeRedirectUrl($linkBack, 'v2/dashboard') ?>';">
+        </td>
+    </tr>
+    </table>
+</div>
+</form>
+</div>
+<?php
+require_once __DIR__ . '/Include/Footer.php';

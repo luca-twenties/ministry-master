@@ -1,0 +1,2 @@
+-- SQLite DROP COLUMN support depends on version; skip to avoid rebuild.
+-- ALTER TABLE events_event DROP COLUMN `event_typename`;

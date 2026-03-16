@@ -1,0 +1,69 @@
+<?php
+
+// Load composer autoloader first so we can use VersionUtils utility
+require_once __DIR__ . '/vendor/autoload.php';
+
+use ChurchCRM\Authentication\AuthenticationManager;
+use ChurchCRM\dto\SystemURLs;
+use ChurchCRM\Utils\MiscUtils;
+use ChurchCRM\Utils\RedirectUtils;
+use ChurchCRM\Utils\VersionUtils;
+
+// Get required PHP version from composer.json (single source of truth)
+// Throws RuntimeException if system state cannot be determined
+try {
+    $requiredPhp = VersionUtils::getRequiredPhpVersion();
+} catch (\RuntimeException $e) {
+    // System cannot determine PHP requirements - fail loudly with clear error
+    http_response_code(500);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Critical System Error: " . $e->getMessage() . "\n\n";
+    echo "Please contact your system administrator or check your ChurchCRM installation.";
+    exit(1);
+}
+
+$phpVersion = phpversion();
+if (version_compare($phpVersion, $requiredPhp, '<')) {
+    header('Location: php-error.php');
+    exit;
+}
+
+$configPath = getenv('CHURCHCRM_CONFIG_PATH') ?: (__DIR__ . '/Include/Config.php');
+if (file_exists($configPath)) {
+    require_once $configPath;
+} else {
+    header('Location: ' . SystemURLs::getRootPath() . '/setup');
+    exit;
+}
+
+mb_internal_encoding('UTF-8');
+
+// Get the current request path and convert it into a magic filename
+// e.g. /list-events => /ListEvents.php
+$shortName = str_replace(SystemURLs::getRootPath() . '/', '', $_SERVER['REQUEST_URI']);
+$fileName = MiscUtils::dashesToCamelCase($shortName, true) . '.php';
+
+if (!empty($_GET['location'])) {
+    $_SESSION['location'] = $_GET['location'];
+}
+
+// First, ensure that the user is authenticated.
+AuthenticationManager::ensureAuthentication();
+
+if (strtolower($shortName) === 'index.php' || strtolower($fileName) === 'index.php') {
+    // Index.php -> v2/dashboard
+    RedirectUtils::redirect('v2/dashboard');
+} elseif (is_file($shortName)) {
+    // Try actual path
+    require $shortName;
+} elseif (file_exists($fileName)) {
+    // Try magic filename
+    require $fileName;
+} elseif (strpos($_SERVER['REQUEST_URI'], 'js') || strpos($_SERVER['REQUEST_URI'], 'css')) { // if this is a CSS or JS file that we can't find, return 404
+    header($_SERVER['SERVER_PROTOCOL'] . ' 404 Not Found', true, 404);
+    exit;
+} else {
+    // Unknown route: do not redirect back to index.php (redirect loop risk). Return 404.
+    header($_SERVER['SERVER_PROTOCOL'] . ' 404 Not Found', true, 404);
+    exit;
+}
