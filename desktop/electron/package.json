@@ -50,6 +50,7 @@
           "arch": ["x64"]
         }
       ],
+      "icon": "build/icon.ico",
       "publisherName": "Ministry Master",
       "verifyUpdateCodeSignature": false
     },
@@ -68,7 +69,8 @@
     "linux": {
       "target": [
         "AppImage"
-      ]
+      ],
+      "icon": "build/icon.png"
     }
   },
   "buildResources": "build"
