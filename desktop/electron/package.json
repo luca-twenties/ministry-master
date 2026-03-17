@@ -7,7 +7,9 @@
   "scripts": {
     "dev": "npx electron .",
     "pack": "npx electron-builder --dir",
-    "dist": "npx electron-builder"
+    "dist": "npx electron-builder",
+    "dist:win": "npx electron-builder --win --x64",
+    "dist:all": "npx electron-builder -mwl"
   },
   "devDependencies": {
     "electron": "^32.3.1",
@@ -41,20 +43,33 @@
         "to": "php"
       }
     ],
-    "mac": {
-      "target": [
-        "dmg"
-      ]
-    },
     "win": {
       "target": [
-        "nsis"
-      ]
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "publisherName": "Ministry Master",
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "installerHeaderIcon": "icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Ministry Master",
+      "include": "installer.nsh"
     },
     "linux": {
       "target": [
         "AppImage"
       ]
     }
-  }
+  },
+  "buildResources": "build"
 }

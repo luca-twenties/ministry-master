@@ -13,7 +13,6 @@ node_modules
 temp
 desktop/electron/dist/
 /desktop/electron/dist/
-/desktop/electron/php/
 *.log
 
 # Locale build artifacts

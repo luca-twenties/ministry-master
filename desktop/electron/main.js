@@ -64,7 +64,7 @@ function getAppRoot() {
 }
 
 function logMissingPhpExtensions(message) {
-  const logLine = `[startup] ${message}`;
+  const logLine = `[startup] ${new Date().toISOString()} ${message}`;
   console.error(logLine);
 
   try {
@@ -73,6 +73,11 @@ function logMissingPhpExtensions(message) {
   } catch (error) {
     console.error(`[startup] Failed to write startup log: ${error.message}`);
   }
+}
+
+function showErrorDialog(title, message) {
+  const { dialog } = require("electron");
+  dialog.showErrorBox(title, message);
 }
 
 function verifyPhpExtensions() {
@@ -195,32 +200,44 @@ async function startPhpServer(credentials) {
 }
 
 async function createWindow() {
-  const { firstRun, credentials } = ensureStandaloneAdminCredentials();
-  const port = await startPhpServer(credentials);
-  const appUrl = `http://${HOST}:${port}/`;
+  try {
+    const { firstRun, credentials } = ensureStandaloneAdminCredentials();
+    const port = await startPhpServer(credentials);
+    const appUrl = `http://${HOST}:${port}/`;
 
-  const win = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  if (firstRun) {
-    pendingAppUrl = appUrl;
-    firstRunWindow = win;
-    await win.loadFile(path.join(__dirname, "first-run.html"), {
-      query: {
-        username: credentials.username,
-        password: credentials.password,
-        dataDir: getDataDir(),
+    const win = new BrowserWindow({
+      width: 1280,
+      height: 800,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        preload: path.join(__dirname, "preload.js"),
       },
     });
-  } else {
-    await win.loadURL(appUrl);
+
+    if (firstRun) {
+      pendingAppUrl = appUrl;
+      firstRunWindow = win;
+      await win.loadFile(path.join(__dirname, "first-run.html"), {
+        query: {
+          username: credentials.username,
+          password: credentials.password,
+          dataDir: getDataDir(),
+        },
+      });
+    } else {
+      await win.loadURL(appUrl);
+    }
+  } catch (error) {
+    logMissingPhpExtensions(`Failed to start application: ${error.message}`);
+    showErrorDialog("Ministry Master - Startup Failed", 
+      `Failed to start Ministry Master:\n\n${error.message}\n\n` +
+      `Check the startup log at:\n${path.join(getDataDir(), "startup.log")}\n\n` +
+      `Common fixes:\n` +
+      `• Ensure all PHP extensions are available\n` +
+      `• Check antivirus isn't blocking the app\n` +
+      `• Run as administrator if needed`);
+    app.quit();
   }
 }
 
