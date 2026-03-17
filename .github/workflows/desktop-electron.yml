@@ -43,7 +43,7 @@ jobs:
       - name: Install PHP dependencies
         run: |
           cd src
-          composer install --no-dev --no-interaction --prefer-dist
+          composer install --no-dev --no-interaction --prefer-dist --ignore-platform-reqs
 
       - name: Install Electron dependencies
         working-directory: desktop/electron
