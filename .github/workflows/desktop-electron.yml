@@ -32,7 +32,8 @@ jobs:
       - name: Enable pnpm
         run: |
           corepack enable
-          corepack prepare pnpm@10.30.3 --activate
+          corepack prepare pnpm@10.30.3 --activate || npm install -g pnpm@10.30.3
+          pnpm --version
 
       - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
