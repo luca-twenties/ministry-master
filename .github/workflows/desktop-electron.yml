@@ -21,6 +21,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Disable sparse checkout (ensure full repo)
+        shell: bash
+        run: |
+          git sparse-checkout disable || true
+          git status --porcelain=v1 || true
 
       - name: Use Node.js (from .nvmrc)
         uses: actions/setup-node@v4
