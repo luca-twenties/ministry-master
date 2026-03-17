@@ -45,6 +45,9 @@ jobs:
         run: |
           ls -la
           ls -la src || true
+          git ls-tree -d HEAD src || true
+          git ls-tree -d HEAD src/ChurchCRM || true
+          git ls-files 'src/ChurchCRM/*' | head -n 20 || true
           if [ ! -d "src/ChurchCRM" ]; then
             echo "Missing src/ChurchCRM in workspace"
             exit 1
