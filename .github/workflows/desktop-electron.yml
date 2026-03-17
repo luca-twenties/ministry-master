@@ -28,6 +28,7 @@ jobs:
         shell: bash
         run: |
           git sparse-checkout disable || true
+          git checkout -f HEAD -- src/ChurchCRM || true
           git status --porcelain=v1 || true
 
       - name: Use Node.js (from .nvmrc)
