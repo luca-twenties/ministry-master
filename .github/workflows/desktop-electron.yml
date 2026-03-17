@@ -40,6 +40,16 @@ jobs:
           extensions: pdo_sqlite, sqlite3, mbstring, intl, zip, curl, gd, fileinfo, gettext, mysqli, sodium
           coverage: none
 
+      - name: Verify src/ChurchCRM exists
+        shell: bash
+        run: |
+          ls -la
+          ls -la src || true
+          if [ ! -d "src/ChurchCRM" ]; then
+            echo "Missing src/ChurchCRM in workspace"
+            exit 1
+          fi
+
       - name: Install PHP dependencies
         run: |
           composer --working-dir=src install --no-dev --no-interaction --prefer-dist --ignore-platform-reqs --no-scripts
