@@ -63,8 +63,7 @@
       "installerHeaderIcon": "icon.ico",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Ministry Master",
-      "include": "installer.nsh"
+      "shortcutName": "Ministry Master"
     },
     "linux": {
       "target": [
